@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>logarithmic spiral</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #8a9bb8;
+      overflow: hidden;
+    }
+
+    svg#field {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      opacity: 0;
+      animation: fade-in 1s ease-out forwards;
+    }
+
+    @keyframes fade-in {
+      to { opacity: 1; }
+    }
+
+    /* polar grid */
+    .grid-circle {
+      fill: none;
+      stroke: white;
+      stroke-width: 0.6;
+      opacity: 0.5;
+    }
+    .grid-radial {
+      stroke: #7d8faa;
+      stroke-width: 0.4;
+    }
+
+    /* spiral segments */
+    .spiral-seg {
+      fill: none;
+      stroke: #e0606e;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* rotation animation */
+    #spiral-group {
+      transform-origin: 500px 500px;
+      animation: spiral-rotate 8s linear infinite;
+    }
+
+    @keyframes spiral-rotate {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* eye */
+    .eye-bg {
+      fill: #e0606e;
+    }
+    .eye-sclera {
+      fill: #a3b7d6;
+      stroke: #e0606e;
+      stroke-width: 3.752;
+    }
+    .eye-iris {
+      fill: #e0606e;
+    }
+  </style>
+</head>
+<body>
+
+  <svg id="field" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect width="1000" height="1000" fill="#8a9bb8"/>
+
+    <!-- polar grid -->
+    <g id="g-grid"></g>
+
+    <!-- rotating spiral -->
+    <g id="spiral-group">
+      <g id="g-spiral"></g>
+    </g>
+
+    <!-- eye at spiral center, offset to match log spiral convergence -->
+    <g id="g-eye">
+      <rect class="eye-bg" rx="29.5"/>
+      <path class="eye-sclera"
+            d="M52.3888 28.6002C52.3195 28.4397 50.6422 24.6209 46.9135 20.794C41.9451 15.6949 35.6697 13 28.7627 13C21.8557 13 15.5803 15.6949 10.6119 20.794C6.88318 24.6209 5.198 28.4458 5.13662 28.6002C5.04654 28.8081 5 29.0332 5 29.2607C5 29.4883 5.04654 29.7133 5.13662 29.9212C5.20592 30.0818 6.88318 33.8985 10.6119 37.7254C15.5803 42.8225 21.8557 45.5174 28.7627 45.5174C35.6697 45.5174 41.9451 42.8225 46.9135 37.7254C50.6422 33.8985 52.3195 30.0818 52.3888 29.9212C52.4788 29.7133 52.5254 29.4883 52.5254 29.2607C52.5254 29.0332 52.4788 28.8081 52.3888 28.6002ZM28.7627 37.388C27.1961 37.388 25.6647 36.9113 24.3621 36.018C23.0595 35.1247 22.0442 33.8551 21.4447 32.3697C20.8452 30.8842 20.6884 29.2497 20.994 27.6727C21.2996 26.0958 22.054 24.6473 23.1618 23.5104C24.2695 22.3735 25.6809 21.5992 27.2174 21.2855C28.7539 20.9719 30.3465 21.1329 31.7939 21.7482C33.2413 22.3634 34.4783 23.4054 35.3487 24.7423C36.219 26.0791 36.6836 27.6509 36.6836 29.2587C36.6836 31.4147 35.8491 33.4825 34.3636 35.007C32.8782 36.5315 30.8635 37.388 28.7627 37.388Z"/>
+      <circle class="eye-iris" cx="28.7627" cy="29.2607" r="8.1"/>
+    </g>
+  </svg>
+
+  <script>
+    const CX = 500, CY = 500;
+    const NS = 'http://www.w3.org/2000/svg';
+
+    // logarithmic spiral: r = a * e^(b * theta)
+    // tune A so the outermost loop reaches the viewport diagonal
+    const B     = 0.12;
+    const R_MAX = 720;           // radius to fill viewport (diagonal ~707 for 1000x1000)
+    const T_MAX = Math.log(R_MAX / 1) / B;  // solve for theta where r = R_MAX with a=1
+    const A     = 1;
+    const STEPS = 3000;
+    const SEG   = 6;             // points per drawn segment (for tapering)
+
+    const MIN_W = 2;
+    const MAX_W = 8;
+
+    const gGrid   = document.getElementById('g-grid');
+    const gSpiral = document.getElementById('g-spiral');
+
+    function mk(tag, attrs, parent) {
+      const e = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      parent.appendChild(e);
+      return e;
+    }
+
+    // ── polar grid
+    const maxR = 750;
+    const ringStep = 75;
+    for (let r = ringStep; r <= maxR; r += ringStep) {
+      mk('circle', { cx: CX, cy: CY, r, class: 'grid-circle' }, gGrid);
+    }
+    for (let deg = 0; deg < 360; deg += 15) {
+      const rad = deg * Math.PI / 180;
+      mk('line', {
+        x1: CX, y1: CY,
+        x2: (CX + (maxR + 50) * Math.cos(rad)).toFixed(2),
+        y2: (CY + (maxR + 50) * Math.sin(rad)).toFixed(2),
+        class: 'grid-radial'
+      }, gGrid);
+    }
+
+    // ── build tapered spiral as many small polyline segments
+    const points = [];
+    for (let i = 0; i <= STEPS; i++) {
+      const t = (i / STEPS) * T_MAX;
+      const r = A * Math.exp(B * t);
+      points.push({
+        x: CX + r * Math.cos(t),
+        y: CY - r * Math.sin(t),
+        t: t / T_MAX   // normalized 0→1 for stroke interpolation
+      });
+    }
+
+    // draw segments with tapering stroke
+    for (let i = 0; i < points.length - 1; i += SEG) {
+      const end = Math.min(i + SEG + 1, points.length);
+      let d = '';
+      for (let j = i; j < end; j++) {
+        d += (j === i ? 'M' : 'L') + points[j].x.toFixed(2) + ',' + points[j].y.toFixed(2);
+      }
+      const mid = points[Math.min(i + Math.floor(SEG / 2), points.length - 1)];
+      const sw = MIN_W + (MAX_W - MIN_W) * mid.t;
+      mk('path', {
+        d,
+        class: 'spiral-seg',
+        'stroke-width': sw.toFixed(2)
+      }, gSpiral);
+    }
+
+    // ── position eye at the spiral's inner convergence point
+    // The log spiral converges toward CX,CY but the innermost visible loop
+    // sits slightly offset. Place the eye there.
+    const eyeR    = A * Math.exp(B * 0);  // r at t=0
+    const eyeOffX = CX + eyeR * 0.5;     // slight offset along the spiral start
+    const eyeOffY = CY - eyeR * 0.3;
+
+    const eyeSize = 59;
+    const eyeScale = 0.85;
+    const gEye = document.getElementById('g-eye');
+    gEye.setAttribute('transform',
+      `translate(${eyeOffX - (eyeSize * eyeScale) / 2}, ${eyeOffY - (eyeSize * eyeScale) / 2}) scale(${eyeScale})`);
+    // set the background circle size
+    const bg = gEye.querySelector('.eye-bg');
+    bg.setAttribute('width', eyeSize);
+    bg.setAttribute('height', eyeSize);
+  </script>
+</body>
+</html>
